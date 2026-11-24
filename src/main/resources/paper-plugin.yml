@@ -1,0 +1,30 @@
+name: AntiXray
+version: '${version}'
+main: dev.javaroot.antixray.AntiXray
+api-version: '26.2'
+folia-supported: true
+authors:
+  - javaroot
+dependencies:
+  server:
+    packetevents:
+      load: BEFORE
+      required: true
+      join-classpath: true
+permissions:
+  antixray.admin:
+    default: op
+  antixray.alerts:
+    default: op
+  antixray.check:
+    default: op
+  antixray.spawn:
+    default: op
+  antixray.bypass:
+    default: false
+  antixray.storage.bypass:
+    default: false
+  antixray.storage.view:
+    default: op
+  antixray.update:
+    default: op

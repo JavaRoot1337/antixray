@@ -1,0 +1,63 @@
+palette:
+  primary: "#38BDF8"   # основной голубой
+  accent: "#BAE6FD"    # светло-голубой
+  text: "#F1F5F9"      # белый
+  muted: "#94A3B8"     # серо-голубой
+  success: "#34D399"   # мятный
+  warning: "#FBBF24"   # янтарный
+  danger: "#FB7185"    # коралловый
+
+alerts:
+  hit:
+    - "%primary%│ %accent%ᴀxʀ %muted%· %warning%%player% %text%дᴏбыл %accent%%ore% %muted%(%warning%%count%%muted%/%max_count%)"
+    - "%primary%│ %muted%%world% %x% %y% %z% · пᴏдᴏзᴘᴇʜиᴇ %warning%%suspicion%  <click:run_command:'/tp %x% %y% %z%'><hover:show_text:'%muted%ʜᴀжᴍиᴛᴇ для ᴛᴇлᴇпᴏᴘᴛᴀ'>%primary%[ᴛп]</hover></click>"
+  punished:
+    - "%danger%│ %danger%x-ʀᴀʏ %muted%· %text%%player% %danger%ʜᴀᴋᴀзᴀʜ %muted%(%danger%%count%%muted%/%max_count%)"
+    - "%danger%│ %muted%%world% %x% %y% %z% · ᴘʏдᴀ %accent%%ore%"
+  console-hit: "[AXR] %player% mined phantom %ore% (%count%/%max_count%) at %world% %x% %y% %z% (sus=%suspicion%)"
+  console-punished: "[AXR] %player% punished for X-Ray (%count%/%max_count%)"
+
+commands:
+  no-permission: "%danger%ᴀxʀ %muted%│ %text%ʜᴇᴛ пᴘᴀʙ"
+  player-not-found: "%danger%ᴀxʀ %muted%│ %text%игᴘᴏᴋ %accent%%player% %text%ʜᴇ ʜᴀйдᴇʜ"
+  reloaded: "%success%ᴀxʀ %muted%│ %text%ᴋᴏʜфиг пᴇᴘᴇзᴀгᴘʏжᴇʜ"
+  alerts-enabled: "%success%ᴀxʀ %muted%│ %text%ᴀлᴇᴘᴛы ʙᴋлючᴇʜы"
+  alerts-disabled: "%muted%ᴀxʀ │ %text%ᴀлᴇᴘᴛы ʙыᴋлючᴇʜы"
+  reset-done: "%success%ᴀxʀ %muted%│ %text%пᴘᴏфиль %accent%%player% %text%ᴄбᴘᴏшᴇʜ"
+  spawn-success: "%success%ᴀxʀ %muted%│ %text%лᴏʙʏшᴋᴀ ᴄᴏздᴀʜᴀ ᴘядᴏᴍ ᴄ %accent%%player%"
+  spawn-failed: "%warning%ᴀxʀ %muted%│ %text%ʜᴇᴛ пᴏдxᴏдящᴇй ᴄᴛᴇʜы ᴘядᴏᴍ ᴄ %accent%%player%"
+  update-checking: "%primary%ᴀxʀ %muted%│ %text%пᴘᴏʙᴇᴘяю ᴏбʜᴏʙлᴇʜия..."
+  update-up-to-date: "%success%ᴀxʀ %muted%│ %text%ʏᴄᴛᴀʜᴏʙлᴇʜᴀ ᴀᴋᴛʏᴀльʜᴀя ʙᴇᴘᴄия %accent%v%version%"
+  update-downloaded: "%success%ᴀxʀ %muted%│ %text%ᴏбʜᴏʙлᴇʜиᴇ %accent%v%version% %text%зᴀгᴘʏжᴇʜᴏ, пᴇᴘᴇзᴀпʏᴄᴛи ᴄᴇᴘʙᴇᴘ"
+  update-no-asset: "%warning%ᴀxʀ %muted%│ %text%ʙ ᴘᴇлизᴇ %accent%v%version% %text%ʜᴇᴛ .jar фᴀйлᴀ · %url%"
+  update-in-progress: "%warning%ᴀxʀ %muted%│ %text%ᴏбʜᴏʙлᴇʜиᴇ ʏжᴇ зᴀгᴘʏжᴀᴇᴛᴄя"
+  update-failed: "%danger%ᴀxʀ %muted%│ %text%ᴏшибᴋᴀ ᴏбʜᴏʙлᴇʜия: %error%"
+
+  check-header: "%primary%│ %accent%пᴘᴏʙᴇᴘᴋᴀ %muted%· %text%%player%"
+  check-lines:
+    - "%primary%│ %muted%пᴏдᴏзᴘᴇʜиᴇ › %warning%%suspicion% %muted%/ %threshold%"
+    - "%primary%│ %muted%ᴄлᴇжᴋᴀ › %accent%%watch_mode%"
+    - "%primary%│ %muted%фᴀʜᴛᴏᴍʜыx ᴘʏд › %danger%%count%%muted%/%max_count%"
+    - "%primary%│ %muted%ᴀᴋᴛиʙʜᴀя жилᴀ › %text%%active_trap%"
+    - "%primary%│ %muted%ʜᴀᴋᴀзᴀʜий ʙ бд › %danger%%total_punishments%"
+
+  history-header: "%primary%│ %accent%иᴄᴛᴏᴘия %muted%· %text%%player% %muted%(%primary%%page%%muted%/%max_page%)"
+  history-entry: "%primary%│ %muted%%date% · %accent%%ore% %muted%(%text%%count%%muted%/%max_count%) › %primary%%world% %muted%%x% %y% %z%"
+  history-empty: "%muted%ᴀxʀ │ %text%зᴀпиᴄᴇй для %accent%%player% %text%ʜᴇᴛ"
+
+  help:
+    - "%primary%│ %accent%ᴀɴᴛɪxʀᴀʏ %muted%· ᴋᴏᴍᴀʜды"
+    - "%primary%│ %primary%/ax reload %muted%— пᴇᴘᴇзᴀгᴘʏзиᴛь ᴋᴏʜфиг"
+    - "%primary%│ %primary%/ax alerts %muted%— ʙᴋл/ʙыᴋл ᴀлᴇᴘᴛы"
+    - "%primary%│ %primary%/ax check %accent%<игᴘᴏᴋ> %muted%— ᴄᴛᴀᴛʏᴄ игᴘᴏᴋᴀ"
+    - "%primary%│ %primary%/ax spawn %accent%<игᴘᴏᴋ> %muted%— зᴀᴄпᴀʙʜиᴛь лᴏʙʏшᴋʏ"
+    - "%primary%│ %primary%/ax reset %accent%<игᴘᴏᴋ> %muted%— ᴄбᴘᴏᴄиᴛь пᴘᴏфиль"
+    - "%primary%│ %primary%/ax history %accent%<игᴘᴏᴋ> [ᴄᴛᴘ] %muted%— иᴄᴛᴏᴘия из бд"
+    - "%primary%│ %primary%/ax update %muted%— ᴏбʜᴏʙиᴛь плᴀгиʜ ᴄ github"
+
+ore-names:
+  DIAMOND_ORE: "ᴀлᴍᴀзʜᴀя ᴘʏдᴀ"
+  DEEPSLATE_DIAMOND_ORE: "глʏбиʜʜᴀя ᴀлᴍᴀзʜᴀя ᴘʏдᴀ"
+  EMERALD_ORE: "изʏᴍᴘʏдʜᴀя ᴘʏдᴀ"
+  DEEPSLATE_EMERALD_ORE: "глʏбиʜʜᴀя изʏᴍᴘʏдʜᴀя ᴘʏдᴀ"
+  ANCIENT_DEBRIS: "дᴘᴇʙʜиᴇ ᴏблᴏᴍᴋи"

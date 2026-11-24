@@ -1,0 +1,136 @@
+config-version: 1 # версия конфига
+
+general: # общие настройки
+  debug: false # отладка в консоль
+  ignore-creative: true # игнорировать креатив
+  ignore-spectator: true # игнорировать наблюдателя
+  bypass-permission-enabled: true # учитывать право antixray.bypass
+  database-file: "data.db" # файл базы sqlite
+  history-retention-days: 30 # дней хранения логов (0 = вечно)
+
+update-checker: # проверка обновлений на github
+  enabled: true # проверять при старте и каждые 12 ч
+  notify-players: true # уведомлять админов (antixray.update)
+  message: # minimessage: %current%, %latest%, %url%
+    - "<#38BDF8>│ <#BAE6FD>ᴀx <#94A3B8>· <#F1F5F9>Доступна новая версия <#34D399>v%latest% <#94A3B8>(установлена v%current%)"
+    - "<#38BDF8>│ <click:open_url:'%url%'><hover:show_text:'<#94A3B8>Открыть релиз на GitHub'><#38BDF8><u>Скачать обновление</u></hover></click>"
+
+suspicion: # система подозрений
+  trigger-threshold: 95.0 # порог очков для спавна ловушки
+  max-score: 250.0 # максимум очков подозрения
+  watch-duration-seconds: 300 # длительность слежки (сек)
+  ring-buffer-size: 20 # размер буфера шагов
+
+  decay: # спад очков
+    interval-seconds: 15 # интервал списания (сек)
+    amount-per-interval: 5.0 # очков за интервал
+    straight-stone-blocks-for-bonus-decay: 12 # блоков по прямой для бонуса
+    straight-stone-decay-amount: 10.0 # бонусное списание очков
+
+  vein-grouping: # группировка жил
+    radius: 3 # радиус одной жилы
+    merge-window-seconds: 8 # окно склейки жилы (сек)
+
+  cave-filter: # фильтр пещер
+    enabled: true # учитывать открытость руды
+    check-radius: 2 # радиус проверки воздуха
+    min-foreign-air-blocks: 3 # чужих блоков воздуха для пещеры
+    player-broken-memory-seconds: 40 # память сломанных блоков (сек)
+    exposed-ore-multiplier: 0.0 # множитель за пещерную руду
+
+  heuristics: # эвристики
+    sharp-turn-to-ore: # резкий поворот к руде
+      enabled: true # включить проверку
+      min-yaw-change-degrees: 45.0 # минимальный поворот (градусы)
+      min-pitch-vertical-delta: 3 # смещение по y для лесенки
+      lookback-min-steps: 3 # минимум шагов назад
+      lookback-max-steps: 12 # максимум шагов назад
+      weight: 50.0 # очки за срабатывание
+
+    rapid-consecutive-veins: # быстрые жилы подряд
+      enabled: true # включить проверку
+      max-seconds-between-veins: 45 # максимум секунд между жилами
+      min-distance-between-veins: 10.0 # минимум блоков между жилами
+      weight: 55.0 # очки за срабатывание
+
+    ore-ratio-window: # доля руд в окне
+      enabled: true # включить проверку
+      window-blocks: 90 # размер окна в блоках
+      min-buried-veins-in-window: 3 # минимум жил в окне
+      weight: 45.0 # очки за срабатывание
+
+    darkness-mining: # копание в темноте
+      enabled: true # включить проверку
+      max-block-light-level: 1 # максимальный свет (0-15)
+      ignore-with-night-vision: true # игнорировать с ночным зрением
+      bonus-weight: 20.0 # бонусные очки
+
+trap: # фантомные ловушки
+  detect-mode: "ON_START_DIG" # режим фиксации (on_start_dig / on_finish_dig)
+  max-active-veins-per-player: 1 # максимум активных жил
+  vein-size-min: 4 # минимум руд в жиле
+  vein-size-max: 6 # максимум руд в жиле
+  min-distance: 6 # минимальная дистанция (блоки)
+  max-distance: 10 # максимальная дистанция (блоки)
+  yaw-offset-min-degrees: 30.0 # минимальный угол вбок
+  yaw-offset-max-degrees: 75.0 # максимальный угол вбок
+  y-offset-min: -3 # минимальное смещение по y
+  y-offset-max: 3 # максимальное смещение по y
+  alternate-sides: true # чередовать лево/право
+  max-spawn-attempts: 35 # попыток поиска места
+  spawn-cooldown-seconds: 15 # обычный кулдаун (сек)
+  fast-respawn-after-hit-seconds: 8 # кулдаун после попадания (сек)
+  ttl-seconds: 90 # время жизни жилы (сек)
+  despawn-distance: 24.0 # дистанция удаления (блоки)
+  require-all-six-solid-neighbors: true # требовать глухую стену
+  cancel-dig-packet: true # отменять пакет ломания
+  restore-on-hit: true # возвращать блок при касании
+
+punishment: # наказания
+  trigger-count: 5 # детектов до наказания
+  count-reset-after-minutes: 20 # сброс счётчика через (мин, 0 = нет)
+  reset-count-on-punish: true # сбрасывать счётчик после бана
+  alert-on-first-hit: true # алерт на 1-й руде
+  alert-on-second-hit: true # алерт на 2-й руде
+  alert-on-punish: true # алерт при наказании
+  log-to-console: true # писать в консоль
+  commands: # команды от консоли
+    - "ban %player% 30d X-Ray (%count%/%max_count%)"
+
+worlds: # настройки миров
+  world: # обычный мир
+    enabled: true # включить в мире
+    max-y: 16 # верхняя граница y
+    min-y: -60 # нижняя граница y
+    replaceable-blocks: # блоки для замены
+      - STONE
+      - DEEPSLATE
+      - TUFF
+    tracked-ores: # отслеживаемые руды
+      - DIAMOND_ORE
+      - DEEPSLATE_DIAMOND_ORE
+      - EMERALD_ORE
+      - DEEPSLATE_EMERALD_ORE
+    phantom-ores: # фантомные руды
+      deepslate-y-threshold: 0 # граница глубинных руд по y
+      above-threshold: # руды выше границы
+        - DIAMOND_ORE
+      below-threshold: # руды ниже границы
+        - DEEPSLATE_DIAMOND_ORE
+
+  world_nether: # незер
+    enabled: true # включить в мире
+    max-y: 26 # верхняя граница y
+    min-y: 6 # нижняя граница y
+    replaceable-blocks: # блоки для замены
+      - NETHERRACK
+      - BLACKSTONE
+      - BASALT
+    tracked-ores: # отслеживаемые руды
+      - ANCIENT_DEBRIS
+    phantom-ores: # фантомные руды
+      deepslate-y-threshold: 0 # граница по y
+      above-threshold: # руды выше границы
+        - ANCIENT_DEBRIS
+      below-threshold: # руды ниже границы
+        - ANCIENT_DEBRIS

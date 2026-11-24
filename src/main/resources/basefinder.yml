@@ -1,0 +1,104 @@
+# защита от storageesp, spawneresp и basefinder
+enabled: true # включить модуль (false — отключает всё)
+config-version: 1 # версия конфига
+
+bypass: # обход защиты
+  permission-enabled: true # учитывать право antixray.storage.bypass
+  ignore-creative: true # игнорировать креатив
+  ignore-spectator: false # игнорировать всех наблюдателей
+  ignore-spectator-moderators: true # игнорировать наблюдателя с правом antixray.storage.view
+
+masking: # правила скрытия в чанке
+  skip-chunk-border: true # не скрывать блоки на краю чанка (0 и 15)
+  require-both-double-chest-halves-buried: true # скрывать двойной сундук только целиком
+  extra-occluding-blocks: [] # дополнительные глухие блоки
+  non-occluding-overrides: # блоки, не считающиеся глухой стеной
+    - SPAWNER
+    - CHEST
+    - TRAPPED_CHEST
+    - ENDER_CHEST
+    - "*_SHULKER_BOX"
+
+packets: # фильтрация пакетов
+  filter-chunk-data: true # скрывать блоки и tileentity в chunk_data
+  block-entity-data: true # блокировать block_entity_data для скрытых позиций
+  block-action: true # блокировать block_action (тики спавнера, крышка сундука)
+  filter-block-change: true # фильтровать block_change для скрытых позиций
+  filter-multi-block-change: true # фильтровать multi_block_change для скрытых позиций
+  clear-on-unload-chunk: true # очищать кэш игрока при выгрузке чанка
+
+reveal: # раскрытие блоков
+  radius: 1 # радиус проверки вокруг блока (1-3, 1 = 6 соседей)
+  on-start-dig: true # раскрывать при начале копания
+  on-block-break: true # раскрывать при поломке соседа
+  on-explosion: true # раскрывать при взрывах
+  on-piston: true # раскрывать при сдвиге поршнем
+  on-interact: true # раскрывать при клике по скрытому блоку
+  on-block-burn: true # раскрывать при сгорании соседа
+  send-tile-entity-data: true # досылать nbt (спавнер, двойной сундук)
+  double-chest-partner: true # раскрывать вторую половину двойного сундука
+
+hidden-blocks: # скрываемые блоки (*_shulker_box)
+  - CHEST
+  - TRAPPED_CHEST
+  - BARREL
+  - ENDER_CHEST
+  - HOPPER
+  - DISPENSER
+  - DROPPER
+  - FURNACE
+  - BLAST_FURNACE
+  - SMOKER
+  - BREWING_STAND
+  - SPAWNER
+  - TRIAL_SPAWNER
+  - VAULT
+  - CRAFTER
+  - DECORATED_POT
+  - CHISELED_BOOKSHELF
+  - "*_SHULKER_BOX"
+
+default-world: # шаблон для остальных миров
+  enabled-for-unlisted-worlds: false # защищать неперечисленные миры
+  min-y: -64 # нижняя граница по y
+  max-y: 319 # верхняя граница по y
+  deepslate-y-threshold: 0 # граница смены блока подмены по y
+  above-replacement: STONE # блок подмены выше границы
+  below-replacement: DEEPSLATE # блок подмены ниже границы
+  use-neighbor-camouflage: true # подменять на частый глухой блок вокруг
+  camouflage-whitelist: [] # разрешённые блоки камуфляжа (пусто = любые)
+
+worlds: # настройки по мирам
+  world:
+    enabled: true
+    min-y: -64
+    max-y: 319
+    deepslate-y-threshold: 0
+    above-replacement: STONE
+    below-replacement: DEEPSLATE
+    use-neighbor-camouflage: true
+    camouflage-whitelist: []
+    extra-hidden-blocks: [] # доп. скрываемые блоки в этом мире
+    ignored-blocks: [] # исключения из hidden-blocks для мира
+  world_nether:
+    enabled: true
+    min-y: 0
+    max-y: 127
+    deepslate-y-threshold: 0
+    above-replacement: NETHERRACK
+    below-replacement: NETHERRACK
+    use-neighbor-camouflage: true
+    camouflage-whitelist: []
+    extra-hidden-blocks: []
+    ignored-blocks: []
+  world_the_end:
+    enabled: true
+    min-y: 0
+    max-y: 255
+    deepslate-y-threshold: 0
+    above-replacement: END_STONE
+    below-replacement: END_STONE
+    use-neighbor-camouflage: true
+    camouflage-whitelist: []
+    extra-hidden-blocks: []
+    ignored-blocks: []
