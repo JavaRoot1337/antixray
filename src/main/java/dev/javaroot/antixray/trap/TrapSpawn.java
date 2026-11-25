@@ -3,10 +3,12 @@ package dev.javaroot.antixray.trap;
 import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import dev.javaroot.antixray.cfg.Cfg;
 import dev.javaroot.antixray.cfg.WorldCfg;
-import dev.javaroot.antixray.mdl.Session;
-import dev.javaroot.antixray.mdl.Vein;
+import dev.javaroot.antixray.cfg.sec.TrapCfg;
+import dev.javaroot.antixray.plat.world.Pos;
+import dev.javaroot.antixray.plat.world.RegGuard;
+import dev.javaroot.antixray.sess.Sess;
+import dev.javaroot.antixray.trap.mdl.Vein;
 import io.github.retrooper.packetevents.util.SpigotConversionUtil;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -21,204 +23,156 @@ import java.util.function.Supplier;
 
 public final class TrapSpawn {
 
-    private final Supplier<Cfg> cfgSupplier;
+    private final Supplier<Cfg> cfgSup;
     private final TrapMgr trapMgr;
 
-    public TrapSpawn(Supplier<Cfg> cfgSupplier, TrapMgr trapMgr) {
-        this.cfgSupplier = cfgSupplier;
+    public TrapSpawn(Supplier<Cfg> cfgSup, TrapMgr trapMgr) {
+        this.cfgSup = cfgSup;
         this.trapMgr = trapMgr;
     }
 
-    public boolean tryAutoSpawn(Player player, Session session, WorldCfg worldCfg) {
-        Cfg cfg = cfgSupplier.get();
+    public boolean tryAuto(Player p, Sess sess, WorldCfg wCfg) {
+        TrapCfg tc = cfgSup.get().trap();
         long nowMs = System.currentTimeMillis();
-        if (trapMgr.activeCount(player.getUniqueId()) >= cfg.maxActiveVeinsPerPlayer) {
+        if (trapMgr.activeCount(p.getUniqueId()) >= tc.maxActiveVeins() || !sess.traps().canSpawn(nowMs)) {
             return false;
         }
-        if (!session.canSpawnTrap(nowMs)) {
-            return false;
+        boolean ok = spawnInternal(p, sess, wCfg, null, tc, nowMs);
+        if (ok) {
+            sess.traps().setCooldown(nowMs, tc.cooldownSec());
         }
-        boolean spawned = spawnInternal(player, session, worldCfg, null, cfg, nowMs);
-        if (spawned) {
-            session.setNextTrapCooldown(nowMs, cfg.spawnCooldownSeconds);
-        }
-        return spawned;
+        return ok;
     }
 
-    public boolean spawnManual(Player player, Session session, WorldCfg worldCfg, Material forcedOre) {
-        Cfg cfg = cfgSupplier.get();
-        long nowMs = System.currentTimeMillis();
-        return spawnInternal(player, session, worldCfg, forcedOre, cfg, nowMs);
+    public boolean spawnManual(Player p, Sess sess, WorldCfg wCfg, Material forcedOre) {
+        return spawnInternal(p, sess, wCfg, forcedOre, cfgSup.get().trap(), System.currentTimeMillis());
     }
 
     private boolean spawnInternal(
-            Player player,
-            Session session,
-            WorldCfg worldCfg,
-            Material forcedOre,
-            Cfg cfg,
-            long nowMs
+            Player p, Sess sess, WorldCfg wCfg, Material forcedOre, TrapCfg tc, long nowMs
     ) {
-        Location loc = player.getLocation();
-        World world = loc.getWorld();
-        if (world == null) {
+        Location loc = p.getLocation();
+        World w = loc.getWorld();
+        if (w == null) {
             return false;
         }
 
-        boolean leftSide = session.takeNextSide(cfg.alternateSides);
-        int targetSize = cfg.veinSizeMin;
-        if (cfg.veinSizeMax > cfg.veinSizeMin) {
-            targetSize = ThreadLocalRandom.current().nextInt(cfg.veinSizeMin, cfg.veinSizeMax + 1);
+        boolean leftSide = sess.traps().takeSide(tc.altSides());
+        int targetSize = tc.veinMin();
+        if (tc.veinMax() > tc.veinMin()) {
+            targetSize = ThreadLocalRandom.current().nextInt(tc.veinMin(), tc.veinMax() + 1);
         }
 
-        for (int attempt = 0; attempt < cfg.maxSpawnAttempts; attempt++) {
-            TrapGeo.Candidate cand = TrapGeo.nextCandidate(loc, leftSide, cfg);
-            if (!worldCfg.isInRange(cand.y())) {
+        for (int attempt = 0; attempt < tc.maxAttempts(); attempt++) {
+            TrapGeo.Cand cand = TrapGeo.nextCand(loc, leftSide, tc);
+            if (!wCfg.isInRange(cand.y())) {
                 continue;
             }
-            if (!isValidTrapSpot(world, player.getUniqueId(), cand.x(), cand.y(), cand.z(), worldCfg, cfg)) {
+            if (!isValidSpot(w, p.getUniqueId(), cand.x(), cand.y(), cand.z(), wCfg, tc)) {
                 continue;
             }
 
-            Material ore = pickOre(forcedOre, worldCfg, cand.y());
+            Material ore = pickOre(forcedOre, wCfg, cand.y());
             if (ore == null) {
                 continue;
             }
-            WrappedBlockState phantomState = SpigotConversionUtil.fromBukkitBlockData(ore.createBlockData());
+            WrappedBlockState phantom = SpigotConversionUtil.fromBukkitBlockData(ore.createBlockData());
 
             List<Vein.BlockEntry> entries = new ArrayList<>(targetSize);
-            Block origin = world.getBlockAt(cand.x(), cand.y(), cand.z());
+            Block orig = w.getBlockAt(cand.x(), cand.y(), cand.z());
             entries.add(new Vein.BlockEntry(
-                    cand.x(),
-                    cand.y(),
-                    cand.z(),
-                    SpigotConversionUtil.fromBukkitBlockData(origin.getBlockData()),
-                    phantomState
+                    cand.x(), cand.y(), cand.z(),
+                    SpigotConversionUtil.fromBukkitBlockData(orig.getBlockData()),
+                    phantom
             ));
 
             if (targetSize > 1) {
-                expandVein(world, player.getUniqueId(), worldCfg, cfg, phantomState, entries, targetSize);
+                expandVein(w, p.getUniqueId(), wCfg, tc, phantom, entries, targetSize);
             }
 
             Vein vein = new Vein(
-                    UUID.randomUUID(),
-                    player.getUniqueId(),
-                    world.getName(),
-                    ore,
-                    entries,
-                    nowMs,
-                    nowMs + cfg.ttlSeconds * 1000L,
-                    leftSide
+                    UUID.randomUUID(), p.getUniqueId(), w.getName(), ore,
+                    entries, nowMs, nowMs + tc.ttlSec() * 1000L, leftSide
             );
             trapMgr.addVein(vein);
-            TrapMgr.sendSpawnPackets(player, vein);
+            TrapMgr.sendSpawn(p, vein);
             return true;
         }
         return false;
     }
 
     private void expandVein(
-            World world,
-            UUID playerId,
-            WorldCfg worldCfg,
-            Cfg cfg,
-            WrappedBlockState phantomState,
-            List<Vein.BlockEntry> entries,
-            int targetSize
+            World w, UUID plrId, WorldCfg wCfg, TrapCfg tc,
+            WrappedBlockState phantom, List<Vein.BlockEntry> entries, int targetSize
     ) {
-        int[][] offsets = TrapGeo.NEIGHBOR_OFFSETS;
+        int[][] dirs = Pos.DIRS;
         for (int idx = 0; idx < entries.size() && entries.size() < targetSize; idx++) {
             Vein.BlockEntry base = entries.get(idx);
-            int start = ThreadLocalRandom.current().nextInt(offsets.length);
-            for (int step = 0; step < offsets.length && entries.size() < targetSize; step++) {
-                int[] d = offsets[(start + step) % offsets.length];
+            int start = ThreadLocalRandom.current().nextInt(dirs.length);
+            for (int step = 0; step < dirs.length && entries.size() < targetSize; step++) {
+                int[] d = dirs[(start + step) % dirs.length];
                 int nx = base.x() + d[0];
                 int ny = base.y() + d[1];
                 int nz = base.z() + d[2];
-                if (!worldCfg.isInRange(ny) || containsCoord(entries, nx, ny, nz)) {
+                if (!wCfg.isInRange(ny) || hasCoord(entries, nx, ny, nz)) {
                     continue;
                 }
-                if (!isValidTrapSpot(world, playerId, nx, ny, nz, worldCfg, cfg)) {
+                if (!isValidSpot(w, plrId, nx, ny, nz, wCfg, tc)) {
                     continue;
                 }
-                Block b = world.getBlockAt(nx, ny, nz);
+                Block b = w.getBlockAt(nx, ny, nz);
                 entries.add(new Vein.BlockEntry(
-                        nx,
-                        ny,
-                        nz,
-                        SpigotConversionUtil.fromBukkitBlockData(b.getBlockData()),
-                        phantomState
+                        nx, ny, nz, SpigotConversionUtil.fromBukkitBlockData(b.getBlockData()), phantom
                 ));
             }
         }
     }
 
-    private static boolean containsCoord(List<Vein.BlockEntry> entries, int x, int y, int z) {
-        for (Vein.BlockEntry entry : entries) {
-            if (entry.x() == x && entry.y() == y && entry.z() == z) {
+    private static boolean hasCoord(List<Vein.BlockEntry> entries, int x, int y, int z) {
+        for (Vein.BlockEntry e : entries) {
+            if (e.x() == x && e.y() == y && e.z() == z) {
                 return true;
             }
         }
         return false;
     }
 
-    private boolean isValidTrapSpot(
-            World world,
-            UUID playerId,
-            int x,
-            int y,
-            int z,
-            WorldCfg worldCfg,
-            Cfg cfg
-    ) {
-        if (y < world.getMinHeight() || y >= world.getMaxHeight()) {
+    private boolean isValidSpot(World w, UUID plrId, int x, int y, int z, WorldCfg wCfg, TrapCfg tc) {
+        if (y < w.getMinHeight() || y >= w.getMaxHeight() || !RegGuard.isAccess(w, x, z)) {
             return false;
         }
-        if (!isBlockAccessible(world, x, z)) {
+        if (trapMgr.overlapsAny(plrId, w.getName(), x, y, z)) {
             return false;
         }
-        if (trapMgr.overlapsAny(playerId, world.getName(), x, y, z)) {
+        if (!wCfg.isReplaceable(w.getBlockAt(x, y, z).getType())) {
             return false;
         }
-        Block target = world.getBlockAt(x, y, z);
-        if (!worldCfg.isReplaceable(target.getType())) {
-            return false;
-        }
-        if (!cfg.requireAllSixSolidNeighbors) {
+        if (!tc.requireSixSolid()) {
             return true;
         }
-        for (int[] d : TrapGeo.NEIGHBOR_OFFSETS) {
+        for (int[] d : Pos.DIRS) {
             int nx = x + d[0];
             int ny = y + d[1];
             int nz = z + d[2];
-            if (ny < world.getMinHeight() || ny >= world.getMaxHeight() || !isBlockAccessible(world, nx, nz)) {
+            if (ny < w.getMinHeight() || ny >= w.getMaxHeight() || !RegGuard.isAccess(w, nx, nz)) {
                 return false;
             }
-            Material neighborType = world.getBlockAt(nx, ny, nz).getType();
-            if (!neighborType.isSolid() || !neighborType.isOccluding()) {
+            Material mat = w.getBlockAt(nx, ny, nz).getType();
+            if (!mat.isSolid() || !mat.isOccluding()) {
                 return false;
             }
         }
         return true;
     }
 
-    private static boolean isBlockAccessible(World world, int x, int z) {
-        int chunkX = x >> 4;
-        int chunkZ = z >> 4;
-        return world.isChunkLoaded(chunkX, chunkZ) && Bukkit.isOwnedByCurrentRegion(world, chunkX, chunkZ);
-    }
-
-    private static Material pickOre(Material forcedOre, WorldCfg worldCfg, int y) {
+    private static Material pickOre(Material forcedOre, WorldCfg wCfg, int y) {
         if (forcedOre != null) {
             return forcedOre;
         }
-        List<Material> pool = worldCfg.phantomOresForY(y);
+        List<Material> pool = wCfg.phantomOresForY(y);
         if (pool.isEmpty()) {
             return null;
         }
-        if (pool.size() == 1) {
-            return pool.get(0);
-        }
-        return pool.get(ThreadLocalRandom.current().nextInt(pool.size()));
+        return pool.size() == 1 ? pool.get(0) : pool.get(ThreadLocalRandom.current().nextInt(pool.size()));
     }
 }

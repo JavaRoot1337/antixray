@@ -65,6 +65,24 @@ suspicion: # система подозрений
       ignore-with-night-vision: true # игнорировать с ночным зрением
       bonus-weight: 20.0 # бонусные очки
 
+    reaction-to-ore: # наведение на руду сквозь стену
+      enabled: true # включить проверку
+      rotation-buffer-size: 64 # размер кольцевого буфера
+      min-turn-angle-deg: 28.0 # минимальный поворот для якоря
+      turn-window-ms: 550 # окно накопления поворота (мс)
+      stabilize-deg-per-sec: 35.0 # порог стабилизации прицела
+      min-distance-blocks: 4.5 # минимальная дистанция до руды
+      max-distance-blocks: 16.0 # максимальная дистанция до руды
+      min-reaction-ms: 1200 # минимальное время до вскрытия (мс)
+      max-reaction-ms: 18000 # максимальное время до вскрытия (мс)
+      max-aim-error-deg: 16.0 # допуск 3D-наведения (градусы)
+      min-solid-blocks-on-ray: 3 # минимум целых блоков на луче
+      orthogonal-turn-tolerance-deg: 6.0 # допуск ровного 90° поворота
+      orthogonal-multiplier: 0.4 # множитель для ровных 90° веток
+      weight: 55.0 # базовый вес срабатывания
+      repeat-streak-window-seconds: 180 # окно серии повторов (сек)
+      repeat-streak-multiplier: 1.4 # множитель при серии 2+ раз
+
 trap: # фантомные ловушки
   detect-mode: "ON_START_DIG" # режим фиксации (on_start_dig / on_finish_dig)
   max-active-veins-per-player: 1 # максимум активных жил

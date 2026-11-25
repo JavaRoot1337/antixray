@@ -10,25 +10,25 @@ public record WorldCfg(
         boolean enabled,
         int maxY,
         int minY,
-        Set<Material> replaceableBlocks,
+        Set<Material> replaceable,
         Set<Material> trackedOres,
-        int deepslateYThreshold,
-        List<Material> aboveThresholdOres,
-        List<Material> belowThresholdOres
+        int deepslateY,
+        List<Material> aboveOres,
+        List<Material> belowOres
 ) {
     public boolean isInRange(int y) {
         return y >= minY && y <= maxY;
     }
 
-    public boolean isReplaceable(Material material) {
-        return replaceableBlocks.contains(material);
+    public boolean isReplaceable(Material mat) {
+        return replaceable.contains(mat);
     }
 
-    public boolean isTrackedOre(Material material) {
-        return trackedOres.contains(material);
+    public boolean isTrackedOre(Material mat) {
+        return trackedOres.contains(mat);
     }
 
     public List<Material> phantomOresForY(int y) {
-        return y >= deepslateYThreshold ? aboveThresholdOres : belowThresholdOres;
+        return y >= deepslateY ? aboveOres : belowOres;
     }
 }

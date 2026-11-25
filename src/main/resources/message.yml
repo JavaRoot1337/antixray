@@ -19,6 +19,7 @@ alerts:
 
 commands:
   no-permission: "%danger%ᴀxʀ %muted%│ %text%ʜᴇᴛ пᴘᴀʙ"
+  player-only: "%danger%ᴀxʀ %muted%│ %text%ᴋᴏᴍᴀʜдᴀ ᴛᴏльᴋᴏ для игᴘᴏᴋᴀ"
   player-not-found: "%danger%ᴀxʀ %muted%│ %text%игᴘᴏᴋ %accent%%player% %text%ʜᴇ ʜᴀйдᴇʜ"
   reloaded: "%success%ᴀxʀ %muted%│ %text%ᴋᴏʜфиг пᴇᴘᴇзᴀгᴘʏжᴇʜ"
   alerts-enabled: "%success%ᴀxʀ %muted%│ %text%ᴀлᴇᴘᴛы ʙᴋлючᴇʜы"

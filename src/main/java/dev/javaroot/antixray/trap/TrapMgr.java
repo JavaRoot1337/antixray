@@ -4,8 +4,8 @@ import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
 import dev.javaroot.antixray.cfg.Cfg;
-import dev.javaroot.antixray.mdl.Vein;
-import dev.javaroot.antixray.sched.Exec;
+import dev.javaroot.antixray.plat.sched.Exec;
+import dev.javaroot.antixray.trap.mdl.Vein;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -20,193 +20,164 @@ import java.util.function.Supplier;
 
 public final class TrapMgr {
 
-    private final Supplier<Cfg> cfgSupplier;
+    private final Supplier<Cfg> cfgSup;
     private final Exec exec;
-    private final Map<UUID, CopyOnWriteArrayList<Vein>> activeByPlayer = new ConcurrentHashMap<>();
+    private final Map<UUID, CopyOnWriteArrayList<Vein>> active = new ConcurrentHashMap<>();
 
-    public TrapMgr(Supplier<Cfg> cfgSupplier, Exec exec) {
-        this.cfgSupplier = cfgSupplier;
+    public TrapMgr(Supplier<Cfg> cfgSup, Exec exec) {
+        this.cfgSup = cfgSup;
         this.exec = exec;
     }
 
     public void addVein(Vein vein) {
-        activeByPlayer.compute(vein.playerId(), (id, existing) -> {
-            CopyOnWriteArrayList<Vein> list = existing != null ? existing : new CopyOnWriteArrayList<>();
+        active.compute(vein.plrId(), (id, cur) -> {
+            CopyOnWriteArrayList<Vein> list = cur != null ? cur : new CopyOnWriteArrayList<>();
             list.add(vein);
             return list;
         });
     }
 
-    public int activeCount(UUID playerId) {
-        List<Vein> list = activeByPlayer.get(playerId);
+    public int activeCount(UUID plrId) {
+        List<Vein> list = active.get(plrId);
         return list == null ? 0 : list.size();
     }
 
-    public List<Vein> activeVeins(UUID playerId) {
-        List<Vein> list = activeByPlayer.get(playerId);
+    public List<Vein> activeVeins(UUID plrId) {
+        List<Vein> list = active.get(plrId);
         return list == null ? List.of() : List.copyOf(list);
     }
 
-    public boolean overlapsAny(UUID playerId, String worldName, int x, int y, int z) {
-        List<Vein> list = activeByPlayer.get(playerId);
-        if (list == null || list.isEmpty()) {
-            return false;
-        }
-        for (Vein vein : list) {
-            if (vein.worldName().equals(worldName) && vein.contains(x, y, z)) {
-                return true;
-            }
-        }
-        return false;
+    public boolean overlapsAny(UUID plrId, String world, int x, int y, int z) {
+        return findVeinAt(plrId, world, x, y, z) != null;
     }
 
-    public Vein findVeinAt(UUID playerId, String worldName, int x, int y, int z) {
-        List<Vein> list = activeByPlayer.get(playerId);
+    public Vein findVeinAt(UUID plrId, String world, int x, int y, int z) {
+        List<Vein> list = active.get(plrId);
         if (list == null || list.isEmpty()) {
             return null;
         }
-        for (Vein vein : list) {
-            if (vein.worldName().equals(worldName) && vein.contains(x, y, z)) {
-                return vein;
+        for (Vein v : list) {
+            if (v.world().equals(world) && v.contains(x, y, z)) {
+                return v;
             }
         }
         return null;
     }
 
-    public boolean removeVein(Vein vein, boolean restoreToClient) {
+    public boolean removeVein(Vein vein, boolean restore) {
         boolean[] removed = {false};
-        activeByPlayer.computeIfPresent(vein.playerId(), (id, list) -> {
+        active.computeIfPresent(vein.plrId(), (id, list) -> {
             removed[0] = list.remove(vein);
             return list.isEmpty() ? null : list;
         });
-        if (removed[0] && restoreToClient) {
-            Player player = Bukkit.getPlayer(vein.playerId());
-            if (player != null && player.isOnline()) {
-                sendRestorePackets(player, vein);
+        if (removed[0] && restore) {
+            Player p = Bukkit.getPlayer(vein.plrId());
+            if (p != null && p.isOnline()) {
+                sendRestore(p, vein);
             }
         }
         return removed[0];
     }
 
-    public void clearPlayer(UUID playerId, boolean restoreToClient) {
-        CopyOnWriteArrayList<Vein> list = activeByPlayer.remove(playerId);
-        if (list == null || list.isEmpty() || !restoreToClient) {
+    public void clearPlayer(UUID plrId, boolean restore) {
+        CopyOnWriteArrayList<Vein> list = active.remove(plrId);
+        if (list == null || list.isEmpty() || !restore) {
             return;
         }
-        Player player = Bukkit.getPlayer(playerId);
-        if (player == null || !player.isOnline()) {
+        Player p = Bukkit.getPlayer(plrId);
+        if (p == null || !p.isOnline()) {
             return;
         }
-        for (Vein vein : list) {
-            sendRestorePackets(player, vein);
+        for (Vein v : list) {
+            sendRestore(p, v);
         }
     }
 
-    public void clearAll(boolean restoreToClient) {
-        List<UUID> ids = new ArrayList<>(activeByPlayer.keySet());
+    public void clearAll(boolean restore) {
+        List<UUID> ids = new ArrayList<>(active.keySet());
         for (UUID id : ids) {
-            clearPlayer(id, restoreToClient);
+            clearPlayer(id, restore);
         }
     }
 
-    public void handleBlockChange(String worldName, int x, int y, int z) {
-        for (CopyOnWriteArrayList<Vein> list : activeByPlayer.values()) {
-            for (Vein vein : list) {
-                if (vein.worldName().equals(worldName) && vein.contains(x, y, z)) {
-                    boolean removed = removeVein(vein, false);
-                    if (removed) {
-                        Player player = Bukkit.getPlayer(vein.playerId());
-                        if (player != null && player.isOnline()) {
-                            sendRestorePacketsExcluding(player, vein, x, y, z);
-                        }
+    public void handleBlockChange(String world, int x, int y, int z) {
+        for (CopyOnWriteArrayList<Vein> list : active.values()) {
+            for (Vein v : list) {
+                if (v.world().equals(world) && v.contains(x, y, z) && removeVein(v, false)) {
+                    Player p = Bukkit.getPlayer(v.plrId());
+                    if (p != null && p.isOnline()) {
+                        sendPackets(p, v, false, true, x, y, z);
                     }
                 }
             }
         }
     }
 
-    public void handleChunkDesync(UUID playerId, String worldName, int chunkX, int chunkZ) {
-        CopyOnWriteArrayList<Vein> list = activeByPlayer.get(playerId);
+    public void handleChunkDesync(UUID plrId, String world, int cx, int cz) {
+        CopyOnWriteArrayList<Vein> list = active.get(plrId);
         if (list == null || list.isEmpty()) {
             return;
         }
-        for (Vein vein : list) {
-            if (vein.worldName().equals(worldName) && vein.overlapsChunk(chunkX, chunkZ)) {
-                removeVein(vein, false);
+        for (Vein v : list) {
+            if (v.world().equals(world) && v.overlapsChunk(cx, cz)) {
+                removeVein(v, false);
             }
         }
     }
 
-    public void tickCleanup() {
-        Cfg cfg = cfgSupplier.get();
-        double maxDistSq = cfg.despawnDistance * cfg.despawnDistance;
+    public void tickClean() {
+        double maxDist = cfgSup.get().trap().despawnDist();
+        double maxDistSq = maxDist * maxDist;
         long nowMs = System.currentTimeMillis();
 
-        for (Map.Entry<UUID, CopyOnWriteArrayList<Vein>> entry : activeByPlayer.entrySet()) {
-            UUID playerId = entry.getKey();
-            Player player = Bukkit.getPlayer(playerId);
-            if (player == null || !player.isOnline()) {
-                activeByPlayer.remove(playerId, entry.getValue());
+        for (Map.Entry<UUID, CopyOnWriteArrayList<Vein>> entry : active.entrySet()) {
+            UUID plrId = entry.getKey();
+            Player p = Bukkit.getPlayer(plrId);
+            if (p == null || !p.isOnline()) {
+                active.remove(plrId, entry.getValue());
                 continue;
             }
-            for (Vein vein : entry.getValue()) {
-                if (vein.isExpired(nowMs)) {
-                    removeVein(vein, true);
+            for (Vein v : entry.getValue()) {
+                if (v.isExpired(nowMs)) {
+                    removeVein(v, true);
                 }
             }
-            // Read player location strictly on the entity's owning Folia scheduler thread
-            exec.runEntity(player, () -> {
-                if (!player.isOnline()) {
-                    clearPlayer(playerId, false);
+            exec.runEntity(p, () -> {
+                if (!p.isOnline()) {
+                    clearPlayer(plrId, false);
                     return;
                 }
-                Location loc = player.getLocation();
-                String worldName = loc.getWorld() != null ? loc.getWorld().getName() : "";
-                for (Vein vein : activeVeins(playerId)) {
-                    boolean wrongWorld = !vein.worldName().equals(worldName);
-                    boolean tooFar = !wrongWorld
-                            && vein.distanceSquared(loc.getX(), loc.getY(), loc.getZ()) > maxDistSq;
+                Location loc = p.getLocation();
+                String wName = loc.getWorld() != null ? loc.getWorld().getName() : "";
+                for (Vein v : activeVeins(plrId)) {
+                    boolean wrongWorld = !v.world().equals(wName);
+                    boolean tooFar = !wrongWorld && v.distSq(loc.getX(), loc.getY(), loc.getZ()) > maxDistSq;
                     if (wrongWorld || tooFar) {
-                        removeVein(vein, !wrongWorld);
+                        removeVein(v, !wrongWorld);
                     }
                 }
             });
         }
     }
 
-    public static void sendSpawnPackets(Player player, Vein vein) {
-        var playerMgr = PacketEvents.getAPI().getPlayerManager();
-        for (Vein.BlockEntry block : vein.blocks()) {
-            WrapperPlayServerBlockChange pkt = new WrapperPlayServerBlockChange(
-                    new Vector3i(block.x(), block.y(), block.z()),
-                    block.phantomState()
-            );
-            playerMgr.sendPacket(player, pkt);
-        }
+    public static void sendSpawn(Player p, Vein vein) {
+        sendPackets(p, vein, true, false, 0, 0, 0);
     }
 
-    public static void sendRestorePackets(Player player, Vein vein) {
-        var playerMgr = PacketEvents.getAPI().getPlayerManager();
-        for (Vein.BlockEntry block : vein.blocks()) {
-            WrapperPlayServerBlockChange pkt = new WrapperPlayServerBlockChange(
-                    new Vector3i(block.x(), block.y(), block.z()),
-                    block.realState()
-            );
-            playerMgr.sendPacket(player, pkt);
-        }
+    public static void sendRestore(Player p, Vein vein) {
+        sendPackets(p, vein, false, false, 0, 0, 0);
     }
 
-    private static void sendRestorePacketsExcluding(Player player, Vein vein, int skipX, int skipY, int skipZ) {
-        var playerMgr = PacketEvents.getAPI().getPlayerManager();
-        for (Vein.BlockEntry block : vein.blocks()) {
-            if (block.x() == skipX && block.y() == skipY && block.z() == skipZ) {
+    private static void sendPackets(
+            Player p, Vein vein, boolean phantom, boolean skipOne, int sx, int sy, int sz
+    ) {
+        var pm = PacketEvents.getAPI().getPlayerManager();
+        for (Vein.BlockEntry b : vein.blocks()) {
+            if (skipOne && b.x() == sx && b.y() == sy && b.z() == sz) {
                 continue;
             }
-            WrapperPlayServerBlockChange pkt = new WrapperPlayServerBlockChange(
-                    new Vector3i(block.x(), block.y(), block.z()),
-                    block.realState()
-            );
-            playerMgr.sendPacket(player, pkt);
+            int stateId = (phantom ? b.phantomState() : b.realState()).getGlobalId();
+            pm.sendPacket(p, new WrapperPlayServerBlockChange(new Vector3i(b.x(), b.y(), b.z()), stateId));
         }
     }
 }

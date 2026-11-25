@@ -12,16 +12,22 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public final class Db {
 
-    private final File dbFile;
-    private final ExecutorService executor;
-    private Connection connection;
+    private static final int SCHEMA_VER = 1;
 
-    public Db(File dbFile) {
+    private final File dbFile;
+    private final Logger log;
+    private final ExecutorService exec;
+    private Connection conn;
+
+    public Db(File dbFile, Logger log) {
         this.dbFile = dbFile;
-        this.executor = Executors.newSingleThreadExecutor(r -> {
+        this.log = log;
+        this.exec = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "AntiXray-SQLite");
             t.setDaemon(true);
             return t;
@@ -39,11 +45,17 @@ public final class Db {
             throw new SQLException("SQLite JDBC driver not found", ex);
         }
 
-        connection = DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath());
-        try (Statement st = connection.createStatement()) {
+        conn = DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath());
+        try (Statement st = conn.createStatement()) {
             st.execute("PRAGMA journal_mode=WAL;");
             st.execute("PRAGMA synchronous=NORMAL;");
             st.execute("PRAGMA busy_timeout=5000;");
+
+            st.execute("""
+                    CREATE TABLE IF NOT EXISTS schema_version (
+                        version INTEGER PRIMARY KEY
+                    );
+                    """);
 
             st.execute("""
                     CREATE TABLE IF NOT EXISTS player_profiles (
@@ -59,7 +71,7 @@ public final class Db {
                     );
                     """);
 
-            ensureProfileColumns(st);
+            ensureProfileCols(st);
 
             st.execute("""
                     CREATE TABLE IF NOT EXISTS detections_log (
@@ -94,10 +106,11 @@ public final class Db {
 
             st.execute("CREATE INDEX IF NOT EXISTS idx_detections_uuid_time ON detections_log (uuid, created_at DESC);");
             st.execute("CREATE INDEX IF NOT EXISTS idx_punishments_uuid_time ON punishments_log (uuid, created_at DESC);");
+            st.execute("INSERT OR IGNORE INTO schema_version (version) VALUES (" + SCHEMA_VER + ");");
         }
     }
 
-    private static void ensureProfileColumns(Statement st) throws SQLException {
+    private static void ensureProfileCols(Statement st) throws SQLException {
         Set<String> existing = new HashSet<>();
         try (ResultSet rs = st.executeQuery("PRAGMA table_info(player_profiles);")) {
             while (rs.next()) {
@@ -120,45 +133,67 @@ public final class Db {
     public <T> CompletableFuture<T> submit(SqlTask<T> task) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                return task.run(connection);
+                return task.run(conn);
             } catch (SQLException ex) {
                 throw new IllegalStateException("SQLite query failed", ex);
             }
-        }, executor);
+        }, exec);
     }
 
     public CompletableFuture<Void> execute(SqlVoidTask task) {
-        return submit(conn -> {
-            task.run(conn);
+        return submit(c -> {
+            task.run(c);
             return null;
         });
     }
 
+    public CompletableFuture<Void> inTx(SqlVoidTask task) {
+        return execute(c -> {
+            c.setAutoCommit(false);
+            try {
+                task.run(c);
+                c.commit();
+            } catch (SQLException ex) {
+                try {
+                    c.rollback();
+                } catch (SQLException rbEx) {
+                    ex.addSuppressed(rbEx);
+                }
+                throw ex;
+            } finally {
+                c.setAutoCommit(true);
+            }
+        });
+    }
+
     public void close() {
-        executor.shutdown();
+        exec.shutdown();
         try {
-            if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
-                executor.shutdownNow();
+            if (!exec.awaitTermination(5, TimeUnit.SECONDS)) {
+                exec.shutdownNow();
             }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            executor.shutdownNow();
+            exec.shutdownNow();
         }
-        if (connection != null) {
+        if (conn != null) {
             try {
-                connection.close();
-            } catch (SQLException ignored) {
+                conn.close();
+            } catch (SQLException ex) {
+                if (log != null) {
+                    log.log(Level.WARNING, "Failed to close SQLite connection", ex);
+                }
             }
         }
     }
 
     @FunctionalInterface
     public interface SqlTask<T> {
-        T run(Connection conn) throws SQLException;
+        T run(Connection c) throws SQLException;
     }
 
     @FunctionalInterface
     public interface SqlVoidTask {
-        void run(Connection conn) throws SQLException;
+        void run(Connection c) throws SQLException;
     }
 }
